@@ -150,8 +150,6 @@
   <div class="toolbar">
     <button id="btnClear" type="button">清空填字</button>
     <button id="btnShowAnswers" type="button">显示答案</button>
-    <button id="btnExport" type="button">导出答案 JSON</button>
-    <button id="btnExportClues" type="button">导出提示 JSON</button>
     <span class="hint">自动题号；方向键移动。</span>
   </div>
 
@@ -499,8 +497,6 @@
 
     document.getElementById("btnClear").addEventListener("click", clearAll);
     document.getElementById("btnShowAnswers").addEventListener("click", showAnswers);
-    document.getElementById("btnExport").addEventListener("click", exportAnswers);
-    document.getElementById("btnExportClues").addEventListener("click", exportClues);
 
     buildTable();
     clearAll();
