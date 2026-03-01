@@ -1,0 +1,510 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>女声优填字游戏</title>
+  <style>
+    :root{
+      --cell: 38px;
+      --border: 2px;
+      --gridline: 1px;
+      --black: #111;
+      --white: #fff;
+      --header-bg:#f4f5f7;
+      --header-fg:#333;
+      --focus:#4c8bf5;
+      --muted:#667085;
+      --panel:#fafafa;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", Arial;
+    }
+
+    body{ font-family: var(--font); margin: 24px; color:#222; }
+    .layout{
+      display:grid;
+      grid-template-columns: auto minmax(260px, 360px);
+      gap: 18px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .layout{ grid-template-columns: 1fr; }
+    }
+
+    .toolbar{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;
+    }
+    button{
+      appearance:none; border:1px solid #d0d5dd; background:#fff;
+      padding:8px 10px; border-radius:10px; cursor:pointer; font-size:14px;
+    }
+    button:hover{ background:#fafafa; }
+    .hint{ font-size:13px; color:#666; }
+
+    /* Grid table */
+    table.crossword{
+      border-collapse:collapse;
+      border:var(--border) solid var(--black);
+      background:var(--white);
+      user-select:none;
+    }
+    table.crossword th, table.crossword td{
+      border:var(--gridline) solid var(--black);
+      width:var(--cell); height:var(--cell);
+      text-align:center; vertical-align:middle; padding:0; position:relative;
+    }
+    table.crossword th.corner{
+      background:var(--header-bg);
+      border-right:var(--border) solid var(--black);
+      border-bottom:var(--border) solid var(--black);
+    }
+    table.crossword th.col-h{
+      background:var(--header-bg); color:var(--header-fg); font-weight:600;
+      border-bottom:var(--border) solid var(--black);
+    }
+    table.crossword th.row-h{
+      background:var(--header-bg); color:var(--header-fg); font-weight:600;
+      border-right:var(--border) solid var(--black);
+    }
+
+    td.block{ background:var(--black); }
+    td.cell{ background:var(--white); }
+
+    /* 题号（白格左上角） */
+    .num{
+      position:absolute;
+      top:2px; left:3px;
+      font-size:10px;
+      line-height:1;
+      color:#111;
+      opacity:0.85;
+      pointer-events:none;
+    }
+
+    td.cell input{
+      width:100%; height:100%;
+      border:0; outline:none;
+      text-align:center;
+      font-size:18px; font-weight:800;
+      background:transparent;
+      caret-color:transparent;
+    }
+    td.cell input:focus{
+      box-shadow: inset 0 0 0 2px var(--focus);
+    }
+    td.cell input.prefilled{
+      color:#2f6f3e;
+      background:#eef8f0;
+      cursor:not-allowed;
+    }
+
+    /* Clue panel */
+    .panel{
+      border:1px solid #e5e7eb;
+      background:var(--panel);
+      border-radius:14px;
+      padding:14px;
+    }
+    .panel h2{
+      font-size:16px; margin:0 0 10px 0;
+      display:flex; justify-content:space-between; align-items:baseline;
+    }
+    .panel .meta{
+      font-size:12px; color:var(--muted);
+    }
+    .clues{
+      display:grid; gap:14px;
+    }
+    .clue-box{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      padding:10px;
+    }
+    .clue-box h3{
+      margin:0 0 8px 0;
+      font-size:14px;
+    }
+    textarea{
+      width:100%;
+      min-height:160px;
+      resize:vertical;
+      border:1px solid #d0d5dd;
+      border-radius:10px;
+      padding:10px;
+      font-family: var(--font);
+      font-size:13px;
+      line-height:1.5;
+      outline:none;
+      background:#fff;
+    }
+    textarea:focus{ box-shadow: 0 0 0 3px rgba(76,139,245,.15); border-color:#9bbcff; }
+
+    .small{
+      font-size:12px; color:var(--muted);
+      margin-top:8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="toolbar">
+    <button id="btnClear" type="button">清空填字</button>
+    <button id="btnShowAnswers" type="button">显示答案</button>
+    <button id="btnExport" type="button">导出答案 JSON</button>
+    <button id="btnExportClues" type="button">导出提示 JSON</button>
+    <span class="hint">自动题号；方向键移动。</span>
+  </div>
+
+  <div class="layout">
+    <div>
+      <table class="crossword" id="crossword" aria-label="Crossword Puzzle Grid"></table>
+    </div>
+
+    <aside class="panel" aria-label="Clue Panel">
+      <h2>
+        词语提示
+        <span class="meta" id="gridMeta"></span>
+      </h2>
+
+      <div class="clues">
+        <div class="clue-box">
+          <h3>横向</h3>
+          <div>
+            1. 荡漾。<br/>
+            5. 羊（高一点的那个）<br/>
+            7. 氪金。<br/>
+            10. 大人。<br/>
+            11. 拉拉* → 邦邦<br/>
+            14. 灰姑娘女孩。<br/>
+            15. 名将！有能！<br/>
+            16. 德岛美人。<br/>
+            18. 粉色。<br/>
+            19. Thank You!<br/>
+            20. 是新游戏哦？<br/>
+            21. 露比酱！<br/>
+            27. 姐姐是声优。<br/>
+            29. 巴西。<br/>
+            30. 橙色。<br/>
+            31. 辣妹偶像。<br/>
+            32. 不是琴子。<br/>
+            33. 感谢你的回归。<br/>
+          </div>
+        </div>
+
+        <div class="clue-box">
+          <h3>纵向</h3>
+          <div>
+            2. 葱。<br/>
+            3. 咩咩咩。<br/>
+            4. 球王。<br/>
+            6. 星野源。<br/>
+            8. 姐姐是声优。<br/>
+            9. IDOLY PRIDE。<br/>
+            12. 啊哈～呀哈～<br/>
+            13. 菲律宾。<br/>
+            14. CB。<br/>
+            15. Smile, Sweet, Sister, Sadistic<br/>
+            16. 大东北是我的家乡。<br/>
+            17. 酒。<br/>
+            22. 百万现场。<br/>
+            23. 巨峰淑女。<br/>
+            24. 蓝色萝莉精灵和蓝色萝莉战斗天使。<br/>
+            25. 当然会。<br/>
+            26. 哥特。<br/>
+            28. 羊 (GOAT)。<br/>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const GRID = [
+      [0,0,0,0,1,1,1,1,1,1,1,0,1,1,1],
+      [1,0,1,0,1,0,0,0,0,1,0,0,0,0,0],
+      [1,0,1,0,1,1,0,1,1,0,1,0,1,0,1],
+      [1,1,1,0,0,0,0,1,0,0,0,0,1,1,1],
+      [1,1,1,1,1,1,0,1,1,0,1,1,0,1,0],
+      [1,1,1,0,0,0,0,1,0,0,0,0,0,1,0],
+      [0,0,0,0,1,1,1,1,0,1,1,1,0,1,0],
+      [0,1,1,0,1,0,1,1,0,1,0,0,0,0,0],
+      [0,1,1,0,1,0,0,0,0,0,1,1,1,1,0],
+      [1,0,0,0,0,0,1,1,0,1,0,0,0,0,0],
+      [1,1,1,1,1,0,1,1,1,1,1,0,1,1,0],
+      [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+      [0,0,0,0,1,1,0,1,0,0,0,0,0,0,0],
+      [1,0,1,0,0,0,0,1,1,0,1,1,1,0,1],
+      [1,0,1,0,1,1,0,1,1,0,1,1,1,0,1],
+      [0,0,0,1,1,0,0,0,0,0,1,0,0,0,0],
+    ];
+    // Answer key template:
+    // - Use "#" for black cells.
+    // - Use "." for unanswered white cells.
+    // - Use single Unicode characters for answers (e.g. 中, あ, ア).
+    const ANSWER_KEY = [
+      "斎藤千和#######梅###",
+      "#田#泉#陽高真白#三澤紗千香",
+      "#咲#風##森##相#め#春#",
+      "###花宮初奈#櫻川めぐ###",
+      "######津##奏##岡#鷲",
+      "###天野聡美#和多田美咲#見",
+      "山下七海####氣###美#友",
+      "根##由#前##あ#大久保瑠美",
+      "綺##梨#田所あずさ####じ",
+      "#朝日奈丸佳##未#伊駒ゆりえ",
+      "#####織#####形##な",
+      "#原#野#里###逢#有#喜#",
+      "松田颯水##水#武田羅梨沙多胡",
+      "#ひ#伊波杏樹##梨###村#",
+      "#と#織##奈##香###英#",
+      "湊みや##佐々木李子#種田梨沙",
+    ];
+    // 预填提示格（0-based 坐标）：在开局自动填入并锁定。
+    // 可按需修改，例如 { r: 0, c: 0 }。
+    const PREFILLED_CELLS = [
+      { r: 1, c: 1 },
+      { r: 5, c: 10 },
+      { r: 8, c: 5 },
+      { r: 12, c: 1 },
+      { r: 12, c: 9 },
+      { r: 15, c: 12 },
+    ];
+
+    const ROWS = GRID.length;
+    const COLS = GRID[0].length;
+
+    function colLabel(idx){ return String.fromCharCode("A".charCodeAt(0) + idx); }
+
+    function isWhite(r,c){
+      return r>=0 && r<ROWS && c>=0 && c<COLS && GRID[r][c]===0;
+    }
+
+    function answerCharAt(r,c){
+      const chars = Array.from(ANSWER_KEY[r] || "");
+      const ch = chars[c] || ".";
+      return (ch === "." || ch === "#") ? "" : ch;
+    }
+
+    const PREFILLED_MAP = new Map();
+    for (const { r, c } of PREFILLED_CELLS){
+      if (!isWhite(r,c)) continue;
+      const ch = answerCharAt(r,c);
+      if (!ch) continue;
+      PREFILLED_MAP.set(`${r},${c}`, ch);
+    }
+
+    function isAcrossStart(r,c){
+      // 白格且左边是边界/黑格，并且右边还有白格（长度>=2可选，这里不强制>=2）
+      if (!isWhite(r,c)) return false;
+      const leftBlocked = (c===0) || GRID[r][c-1]===1;
+      const hasRight = (c+1 < COLS) && GRID[r][c+1]===0;
+      return leftBlocked && hasRight;
+    }
+
+    function isDownStart(r,c){
+      // 白格且上边是边界/黑格，并且下边还有白格
+      if (!isWhite(r,c)) return false;
+      const upBlocked = (r===0) || GRID[r-1][c]===1;
+      const hasDown = (r+1 < ROWS) && GRID[r+1][c]===0;
+      return upBlocked && hasDown;
+    }
+
+    // 计算题号映射：key "r,c" -> number
+    function computeNumbers(){
+      let n = 1;
+      const map = new Map();
+      const acrossNums = [];
+      const downNums = [];
+
+      for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+          if (!isWhite(r,c)) continue;
+          const a = isAcrossStart(r,c);
+          const d = isDownStart(r,c);
+          if (a || d){
+            map.set(`${r},${c}`, n);
+            if (a) acrossNums.push(n);
+            if (d) downNums.push(n);
+            n++;
+          }
+        }
+      }
+      return { map, acrossNums, downNums };
+    }
+
+    function buildTable(){
+      const { map, acrossNums, downNums } = computeNumbers();
+
+      const table = document.getElementById("crossword");
+      table.innerHTML = "";
+
+      // header row
+      const trHead = document.createElement("tr");
+      const corner = document.createElement("th");
+      corner.className = "corner";
+      trHead.appendChild(corner);
+      for (let c=0;c<COLS;c++){
+        const th = document.createElement("th");
+        th.className = "col-h";
+        th.textContent = colLabel(c);
+        trHead.appendChild(th);
+      }
+      table.appendChild(trHead);
+
+      // body
+      for (let r=0;r<ROWS;r++){
+        const tr = document.createElement("tr");
+
+        const rowH = document.createElement("th");
+        rowH.className = "row-h";
+        rowH.textContent = String(r+1);
+        tr.appendChild(rowH);
+
+        for (let c=0;c<COLS;c++){
+          const td = document.createElement("td");
+
+          if (GRID[r][c]===1){
+            td.className = "block";
+          } else {
+            td.className = "cell";
+
+            // 题号
+            const key = `${r},${c}`;
+            if (map.has(key)){
+              const s = document.createElement("span");
+              s.className = "num";
+              s.textContent = String(map.get(key));
+              td.appendChild(s);
+            }
+
+            // 输入框
+            const input = document.createElement("input");
+            input.maxLength = 1;
+            input.autocomplete = "off";
+            input.spellcheck = false;
+            input.inputMode = "text";
+            input.dataset.r = String(r);
+            input.dataset.c = String(c);
+
+            const prefilled = PREFILLED_MAP.get(`${r},${c}`);
+            if (prefilled){
+              input.value = prefilled;
+              input.readOnly = true;
+              input.classList.add("prefilled");
+            }
+
+            input.addEventListener("input", (e) => {
+              if (e.target.readOnly) return;
+              const raw = e.target.value || "";
+              // Keep only the first non-whitespace Unicode character (supports CJK, Kana, etc.).
+              const first = Array.from(raw.trim())[0] || "";
+              e.target.value = first;
+              if (first) moveNext(r,c);
+            });
+
+            input.addEventListener("keydown", (e) => {
+              const k = e.key;
+              if (k==="ArrowUp")    { e.preventDefault(); focusCell(r-1,c); }
+              if (k==="ArrowDown")  { e.preventDefault(); focusCell(r+1,c); }
+              if (k==="ArrowLeft")  { e.preventDefault(); focusCell(r,c-1); }
+              if (k==="ArrowRight") { e.preventDefault(); focusCell(r,c+1); }
+              if (k==="Backspace" && !e.target.value){
+                e.preventDefault(); movePrev(r,c);
+              }
+            });
+
+            td.appendChild(input);
+          }
+          tr.appendChild(td);
+        }
+
+        table.appendChild(tr);
+      }
+
+      // 右侧面板信息
+      document.getElementById("gridMeta").textContent =
+        `${ROWS}×${COLS}（列A-${colLabel(COLS-1)} 行1-${ROWS}）`;
+
+
+    }
+
+    function focusCell(r,c){
+      if (!isWhite(r,c)) return;
+      const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+      if (input) input.focus();
+    }
+
+    function moveNext(r,c){
+      for (let cc=c+1; cc<COLS; cc++) if (isWhite(r,cc)) return focusCell(r,cc);
+      for (let rr=r+1; rr<ROWS; rr++){
+        for (let cc=0; cc<COLS; cc++) if (isWhite(rr,cc)) return focusCell(rr,cc);
+      }
+    }
+    function movePrev(r,c){
+      for (let cc=c-1; cc>=0; cc--) if (isWhite(r,cc)) return focusCell(r,cc);
+      for (let rr=r-1; rr>=0; rr--){
+        for (let cc=COLS-1; cc>=0; cc--) if (isWhite(rr,cc)) return focusCell(rr,cc);
+      }
+    }
+
+    function clearAll(){
+      document.querySelectorAll("#crossword input").forEach(i => {
+        const key = `${i.dataset.r},${i.dataset.c}`;
+        i.value = PREFILLED_MAP.get(key) || "";
+      });
+      // 聚焦第一个白格
+      outer: for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+          if (isWhite(r,c) && !PREFILLED_MAP.has(`${r},${c}`)){ focusCell(r,c); break outer; }
+        }
+      }
+    }
+
+    function exportAnswers(){
+      const answers = [];
+      for (let r=0;r<ROWS;r++){
+        const row = [];
+        for (let c=0;c<COLS;c++){
+          if (GRID[r][c]===1) row.push("#");
+          else {
+            const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+            row.push((input?.value || "") || ".");
+          }
+        }
+        answers.push(row.join(""));
+      }
+      const payload = { rows: ROWS, cols: COLS, answers };
+      alert(JSON.stringify(payload, null, 2));
+    }
+
+    function exportClues(){
+      const payload = {
+        across: document.getElementById("acrossText").value,
+        down: document.getElementById("downText").value
+      };
+      alert(JSON.stringify(payload, null, 2));
+    }
+
+    function showAnswers(){
+      for (let r=0; r<ROWS; r++){
+        const chars = Array.from(ANSWER_KEY[r] || "");
+        for (let c=0; c<COLS; c++){
+          if (!isWhite(r,c)) continue;
+          const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+          if (!input) continue;
+          const ch = chars[c] || ".";
+          input.value = (ch === "." || ch === "#") ? "" : ch;
+        }
+      }
+    }
+
+    document.getElementById("btnClear").addEventListener("click", clearAll);
+    document.getElementById("btnShowAnswers").addEventListener("click", showAnswers);
+    document.getElementById("btnExport").addEventListener("click", exportAnswers);
+    document.getElementById("btnExportClues").addEventListener("click", exportClues);
+
+    buildTable();
+    clearAll();
+  </script>
+</body>
+</html>
