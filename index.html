@@ -399,7 +399,6 @@
               // Keep only the first non-whitespace Unicode character (supports CJK, Kana, etc.).
               const first = Array.from(raw.trim())[0] || "";
               e.target.value = first;
-              if (first) moveNext(r,c);
             });
 
             input.addEventListener("keydown", (e) => {
