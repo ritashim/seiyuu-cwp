@@ -397,6 +397,7 @@
               // Keep only the first non-whitespace Unicode character (supports CJK, Kana, etc.).
               const first = Array.from(raw.trim())[0] || "";
               e.target.value = first;
+              saveProgress();
             });
 
             input.addEventListener("keydown", (e) => {
@@ -444,20 +445,9 @@
       }
     }
 
-    function clearAll(){
-      document.querySelectorAll("#crossword input").forEach(i => {
-        const key = `${i.dataset.r},${i.dataset.c}`;
-        i.value = PREFILLED_MAP.get(key) || "";
-      });
-      // 聚焦第一个白格
-      outer: for (let r=0;r<ROWS;r++){
-        for (let c=0;c<COLS;c++){
-          if (isWhite(r,c) && !PREFILLED_MAP.has(`${r},${c}`)){ focusCell(r,c); break outer; }
-        }
-      }
-    }
+    const ANSWER_STORAGE_KEY = "seiyuu-cwp.answers.v1";
 
-    function exportAnswers(){
+    function serializeAnswers(){
       const answers = [];
       for (let r=0;r<ROWS;r++){
         const row = [];
@@ -470,7 +460,56 @@
         }
         answers.push(row.join(""));
       }
-      const payload = { rows: ROWS, cols: COLS, answers };
+      return { rows: ROWS, cols: COLS, answers };
+    }
+
+    function saveProgress(){
+      try{
+        localStorage.setItem(ANSWER_STORAGE_KEY, JSON.stringify(serializeAnswers()));
+      }catch(_err){
+        // Ignore storage errors (private mode / quota exceeded).
+      }
+    }
+
+    function restoreProgress(){
+      try{
+        const raw = localStorage.getItem(ANSWER_STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || data.rows !== ROWS || data.cols !== COLS || !Array.isArray(data.answers)) return false;
+
+        for (let r=0; r<ROWS; r++){
+          const chars = Array.from(data.answers[r] || "");
+          for (let c=0; c<COLS; c++){
+            if (!isWhite(r,c)) continue;
+            const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+            if (!input || input.readOnly) continue;
+            const ch = chars[c] || ".";
+            input.value = (ch === "." || ch === "#") ? "" : ch;
+          }
+        }
+        return true;
+      }catch(_err){
+        return false;
+      }
+    }
+
+    function clearAll(){
+      document.querySelectorAll("#crossword input").forEach(i => {
+        const key = `${i.dataset.r},${i.dataset.c}`;
+        i.value = PREFILLED_MAP.get(key) || "";
+      });
+      saveProgress();
+      // 聚焦第一个白格
+      outer: for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+          if (isWhite(r,c) && !PREFILLED_MAP.has(`${r},${c}`)){ focusCell(r,c); break outer; }
+        }
+      }
+    }
+
+    function exportAnswers(){
+      const payload = serializeAnswers();
       alert(JSON.stringify(payload, null, 2));
     }
 
@@ -493,13 +532,14 @@
           input.value = (ch === "." || ch === "#") ? "" : ch;
         }
       }
+      saveProgress();
     }
 
     document.getElementById("btnClear").addEventListener("click", clearAll);
     document.getElementById("btnShowAnswers").addEventListener("click", showAnswers);
 
     buildTable();
-    clearAll();
+    if (!restoreProgress()) clearAll();
   </script>
 </body>
 </html>
