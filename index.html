@@ -399,7 +399,16 @@
               // Keep only the first non-whitespace Unicode character (supports CJK, Kana, etc.).
               const first = Array.from(raw.trim())[0] || "";
               e.target.value = first;
+              placeCaretToEnd(e.target);
               saveProgress();
+            });
+
+            input.addEventListener("focus", (e) => {
+              placeCaretToEnd(e.target);
+            });
+
+            input.addEventListener("click", (e) => {
+              placeCaretToEnd(e.target);
             });
 
             input.addEventListener("keydown", (e) => {
@@ -408,6 +417,11 @@
               if (k==="ArrowDown")  { e.preventDefault(); focusCell(r+1,c); }
               if (k==="ArrowLeft")  { e.preventDefault(); focusCell(r,c-1); }
               if (k==="ArrowRight") { e.preventDefault(); focusCell(r,c+1); }
+              if (k==="Backspace" && e.target.value && e.target.selectionStart===0 && e.target.selectionEnd===0){
+                e.preventDefault();
+                e.target.value = "";
+                saveProgress();
+              }
               if (k==="Backspace" && !e.target.value){
                 e.preventDefault(); movePrev(r,c);
               }
@@ -444,6 +458,16 @@
       for (let cc=c-1; cc>=0; cc--) if (isWhite(r,cc)) return focusCell(r,cc);
       for (let rr=r-1; rr>=0; rr--){
         for (let cc=COLS-1; cc>=0; cc--) if (isWhite(rr,cc)) return focusCell(rr,cc);
+      }
+    }
+
+    function placeCaretToEnd(input){
+      if (!input || input.readOnly) return;
+      const len = input.value.length;
+      try{
+        input.setSelectionRange(len, len);
+      }catch(_err){
+        // Ignore unsupported selection APIs.
       }
     }
 
