@@ -38,6 +38,20 @@
       padding:8px 10px; border-radius:10px; cursor:pointer; font-size:14px;
     }
     button:hover{ background:#fafafa; }
+    button.warn{
+      border-color:#efb6b6;
+      background:#fff1f1;
+      color:#9f2e2e;
+    }
+    button.warn:hover{
+      background:#ffe5e5;
+      border-color:#e38f8f;
+    }
+    button.warn.is-armed{
+      background:#ffdcdc;
+      border-color:#d96f6f;
+      box-shadow: inset 0 0 0 1px #d96f6f;
+    }
     .hint{ font-size:13px; color:#666; }
 
     /* Grid table */
@@ -98,6 +112,14 @@
       background:#eef8f0;
       cursor:not-allowed;
     }
+    td.cell input.hinted{
+      color:#9f2e2e;
+      background:#fff1f1;
+      cursor:not-allowed;
+    }
+    table.crossword.pick-one-char td.cell input:not([readonly]){
+      cursor:crosshair;
+    }
 
     /* Clue panel */
     .panel{
@@ -152,6 +174,13 @@
   <div class="toolbar">
     <button id="btnClear" type="button">清空填字</button>
     <button id="btnShowAnswers" type="button">显示答案</button>
+    <button
+      id="btnGiveOneChar"
+      class="warn"
+      type="button"
+      title="不可逆操作：将自动写入一个正确答案。"
+      aria-label="给我一个字（不可逆）"
+    >⚠ 给我一个字</button>
     <span class="hint">自动题号；方向键移动。</span>
   </div>
 
@@ -292,6 +321,8 @@
       if (!ch) continue;
       PREFILLED_MAP.set(`${r},${c}`, ch);
     }
+    const HINTED_MAP = new Map();
+    let isGiveOneCharSelecting = false;
 
     function isAcrossStart(r,c){
       // 白格且左边是边界/黑格，并且右边还有白格（长度>=2可选，这里不强制>=2）
@@ -391,6 +422,13 @@
               input.value = prefilled;
               input.readOnly = true;
               input.classList.add("prefilled");
+            } else {
+              const hinted = HINTED_MAP.get(`${r},${c}`);
+              if (hinted){
+                input.value = hinted;
+                input.readOnly = true;
+                input.classList.add("hinted");
+              }
             }
 
             input.addEventListener("input", (e) => {
@@ -408,6 +446,14 @@
             });
 
             input.addEventListener("click", (e) => {
+              if (isGiveOneCharSelecting){
+                e.preventDefault();
+                if (lockHintedCell(r,c)){
+                  saveProgress();
+                  setGiveOneCharSelecting(false);
+                }
+                return;
+              }
               placeCaretToEnd(e.target);
             });
 
@@ -471,6 +517,75 @@
       }
     }
 
+    function keyToRC(key){
+      const [rRaw, cRaw] = String(key || "").split(",");
+      const r = Number(rRaw);
+      const c = Number(cRaw);
+      if (!Number.isInteger(r) || !Number.isInteger(c)) return null;
+      return { r, c };
+    }
+
+    function applyLockedStyle(input, key){
+      if (!input) return;
+      if (PREFILLED_MAP.has(key)){
+        input.value = PREFILLED_MAP.get(key) || "";
+        input.readOnly = true;
+        input.classList.add("prefilled");
+        input.classList.remove("hinted");
+        return;
+      }
+      if (HINTED_MAP.has(key)){
+        input.value = HINTED_MAP.get(key) || "";
+        input.readOnly = true;
+        input.classList.add("hinted");
+        input.classList.remove("prefilled");
+        return;
+      }
+      input.readOnly = false;
+      input.classList.remove("prefilled");
+      input.classList.remove("hinted");
+    }
+
+    function restoreHintedMap(rawHinted){
+      HINTED_MAP.clear();
+      if (!Array.isArray(rawHinted)) return;
+      for (const key of rawHinted){
+        const pos = keyToRC(key);
+        if (!pos) continue;
+        const k = `${pos.r},${pos.c}`;
+        if (!isWhite(pos.r, pos.c)) continue;
+        if (PREFILLED_MAP.has(k)) continue;
+        const ch = answerCharAt(pos.r, pos.c);
+        if (!ch) continue;
+        HINTED_MAP.set(k, ch);
+      }
+    }
+
+    function lockHintedCell(r,c){
+      if (!isWhite(r,c)) return false;
+      const key = `${r},${c}`;
+      if (PREFILLED_MAP.has(key)) return false;
+      const ch = answerCharAt(r,c);
+      if (!ch) return false;
+      HINTED_MAP.set(key, ch);
+      const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+      applyLockedStyle(input, key);
+      return true;
+    }
+
+    function setGiveOneCharSelecting(active){
+      isGiveOneCharSelecting = !!active;
+      const btn = document.getElementById("btnGiveOneChar");
+      const table = document.getElementById("crossword");
+      if (btn){
+        btn.classList.toggle("is-armed", isGiveOneCharSelecting);
+        btn.title = isGiveOneCharSelecting
+          ? "选择一个格子：不可逆操作，将写入正确答案并永久锁定。"
+          : "不可逆操作：将自动写入一个正确答案。";
+      }
+      if (table) table.classList.toggle("pick-one-char", isGiveOneCharSelecting);
+    }
+
     const ANSWER_STORAGE_KEY = "seiyuu-cwp.answers.v1";
 
     function serializeAnswers(){
@@ -486,7 +601,7 @@
         }
         answers.push(row.join(""));
       }
-      return { rows: ROWS, cols: COLS, answers };
+      return { rows: ROWS, cols: COLS, answers, hinted: Array.from(HINTED_MAP.keys()) };
     }
 
     function saveProgress(){
@@ -503,13 +618,17 @@
         if (!raw) return false;
         const data = JSON.parse(raw);
         if (!data || data.rows !== ROWS || data.cols !== COLS || !Array.isArray(data.answers)) return false;
+        restoreHintedMap(data.hinted);
 
         for (let r=0; r<ROWS; r++){
           const chars = Array.from(data.answers[r] || "");
           for (let c=0; c<COLS; c++){
             if (!isWhite(r,c)) continue;
             const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
-            if (!input || input.readOnly) continue;
+            if (!input) continue;
+            const key = `${r},${c}`;
+            applyLockedStyle(input, key);
+            if (input.readOnly) continue;
             const ch = chars[c] || ".";
             input.value = (ch === "." || ch === "#") ? "" : ch;
           }
@@ -523,13 +642,15 @@
     function clearAll(){
       document.querySelectorAll("#crossword input").forEach(i => {
         const key = `${i.dataset.r},${i.dataset.c}`;
-        i.value = PREFILLED_MAP.get(key) || "";
+        applyLockedStyle(i, key);
+        if (!i.readOnly) i.value = "";
       });
       saveProgress();
       // 聚焦第一个白格
       outer: for (let r=0;r<ROWS;r++){
         for (let c=0;c<COLS;c++){
-          if (isWhite(r,c) && !PREFILLED_MAP.has(`${r},${c}`)){ focusCell(r,c); break outer; }
+          const key = `${r},${c}`;
+          if (isWhite(r,c) && !PREFILLED_MAP.has(key) && !HINTED_MAP.has(key)){ focusCell(r,c); break outer; }
         }
       }
     }
@@ -554,6 +675,7 @@
           if (!isWhite(r,c)) continue;
           const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
           if (!input) continue;
+          if (input.readOnly) continue;
           const ch = chars[c] || ".";
           input.value = (ch === "." || ch === "#") ? "" : ch;
         }
@@ -563,6 +685,9 @@
 
     document.getElementById("btnClear").addEventListener("click", clearAll);
     document.getElementById("btnShowAnswers").addEventListener("click", showAnswers);
+    document.getElementById("btnGiveOneChar").addEventListener("click", () => {
+      setGiveOneCharSelecting(!isGiveOneCharSelecting);
+    });
 
     buildTable();
     if (!restoreProgress()) clearAll();
