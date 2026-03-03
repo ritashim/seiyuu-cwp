@@ -74,6 +74,10 @@
       border-color:var(--warn-armed-border);
       box-shadow: inset 0 0 0 1px var(--warn-armed-border);
     }
+    button.confirming{
+      border-color:var(--warn-armed-border);
+      box-shadow: 0 0 0 2px var(--warn-armed-bg);
+    }
     .hint{ font-size:13px; color:var(--text-muted); }
 
     /* Grid table */
@@ -237,7 +241,7 @@
 
 <body>
   <div class="toolbar">
-    <button id="btnClear" type="button">清空填字</button>
+    <button id="btnClear" type="button">清空现有答案</button>
     <button id="btnCheckAnswers" type="button">检查现有答案</button>
     <button id="btnShowAnswers" type="button">显示完整答案</button>
     <button
@@ -390,6 +394,9 @@
     const HINTED_MAP = new Map();
     let isGiveOneCharSelecting = false;
     let pendingHintKey = null;
+    const ACTION_CONFIRM_MS = 5000;
+    const actionConfirmState = new Map();
+    const actionConfirmTimers = new Map();
 
     function isAcrossStart(r,c){
       // 白格且左边是边界/黑格，并且右边还有白格（长度>=2可选，这里不强制>=2）
@@ -732,6 +739,32 @@
       syncPickOneCharUiState();
     }
 
+    function isActionConfirming(buttonId){
+      return actionConfirmState.get(buttonId) === true;
+    }
+
+    function setActionConfirming(buttonId, active, defaultText){
+      const btn = document.getElementById(buttonId);
+      const oldTimer = actionConfirmTimers.get(buttonId);
+      if (oldTimer){
+        clearTimeout(oldTimer);
+        actionConfirmTimers.delete(buttonId);
+      }
+      actionConfirmState.set(buttonId, !!active);
+      if (!btn) return;
+      if (active){
+        btn.textContent = "再次点击确定";
+        btn.classList.add("confirming");
+        const timer = setTimeout(() => {
+          setActionConfirming(buttonId, false, defaultText);
+        }, ACTION_CONFIRM_MS);
+        actionConfirmTimers.set(buttonId, timer);
+      } else {
+        btn.textContent = defaultText;
+        btn.classList.remove("confirming");
+      }
+    }
+
     const ANSWER_STORAGE_KEY = "seiyuu-cwp.answers.v1";
 
     function serializeAnswers(){
@@ -839,6 +872,10 @@
           if (!input) continue;
           if (input.readOnly) continue;
           const ch = chars[c] || ".";
+          if (input.classList.contains("reveal-mismatch")){
+            input.value = (ch === "." || ch === "#") ? "" : ch;
+            continue;
+          }
           const current = (input.value || "").trim();
           const expected = (ch === "." || ch === "#") ? "" : ch;
           const mismatched = current !== expected;
@@ -869,9 +906,36 @@
       saveProgress();
     }
 
-    document.getElementById("btnCheckAnswers").addEventListener("click", checkCurrentAnswers);
-    document.getElementById("btnClear").addEventListener("click", clearAll);
-    document.getElementById("btnShowAnswers").addEventListener("click", showAnswers);
+    document.getElementById("btnCheckAnswers").addEventListener("click", () => {
+      const id = "btnCheckAnswers";
+      const label = "检查现有答案";
+      if (!isActionConfirming(id)){
+        setActionConfirming(id, true, label);
+        return;
+      }
+      setActionConfirming(id, false, label);
+      checkCurrentAnswers();
+    });
+    document.getElementById("btnClear").addEventListener("click", () => {
+      const id = "btnClear";
+      const label = "清空现有答案";
+      if (!isActionConfirming(id)){
+        setActionConfirming(id, true, label);
+        return;
+      }
+      setActionConfirming(id, false, label);
+      clearAll();
+    });
+    document.getElementById("btnShowAnswers").addEventListener("click", () => {
+      const id = "btnShowAnswers";
+      const label = "显示完整答案";
+      if (!isActionConfirming(id)){
+        setActionConfirming(id, true, label);
+        return;
+      }
+      setActionConfirming(id, false, label);
+      showAnswers();
+    });
     document.getElementById("btnGiveOneChar").addEventListener("click", () => {
       setGiveOneCharSelecting(!isGiveOneCharSelecting);
     });
