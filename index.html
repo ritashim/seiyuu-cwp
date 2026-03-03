@@ -35,6 +35,8 @@
       --pending-border:#d64545;
       --pending-pulse:#f08a8a;
       --mismatch-text:#891a1a;
+      --reveal-mismatch-text:#9f2e2e;
+      --reveal-mismatch-bg:#ffe5e5;
       --pick-cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2v20M2 12h20' stroke='%23c62828' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2.5' fill='%23c62828'/%3E%3C/svg%3E");
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", Arial;
     }
@@ -116,6 +118,9 @@
     td.cell:has(input.mismatch) .num{
       color:var(--white);
     }
+    td.cell:has(input.hinted) .num{
+      color:var(--white);
+    }
 
     td.cell input{
       display:block;
@@ -136,8 +141,8 @@
       cursor:not-allowed;
     }
     td.cell input.hinted{
-      color:var(--warn-text);
-      background:var(--warn-bg);
+      color:var(--white);
+      background:var(--prefilled-text);
       cursor:not-allowed;
     }
     td.cell input.pending-hint{
@@ -148,6 +153,10 @@
     td.cell input.mismatch{
       color:var(--white);
       background:var(--mismatch-text);
+    }
+    td.cell input.reveal-mismatch{
+      color:var(--reveal-mismatch-text);
+      background:var(--reveal-mismatch-bg);
     }
     td.cell.pending-confirm::after{
       content:"点击\A确认";
@@ -496,6 +505,7 @@
               const first = Array.from(raw.trim())[0] || "";
               e.target.value = first;
               e.target.classList.remove("mismatch");
+              e.target.classList.remove("reveal-mismatch");
               placeCaretToEnd(e.target);
               saveProgress();
             });
@@ -597,6 +607,7 @@
         input.value = PREFILLED_MAP.get(key) || "";
         input.readOnly = true;
         input.classList.remove("mismatch");
+        input.classList.remove("reveal-mismatch");
         input.classList.add("prefilled");
         input.classList.remove("hinted");
         return;
@@ -605,6 +616,7 @@
         input.value = HINTED_MAP.get(key) || "";
         input.readOnly = true;
         input.classList.remove("mismatch");
+        input.classList.remove("reveal-mismatch");
         input.classList.add("hinted");
         input.classList.remove("prefilled");
         return;
@@ -629,9 +641,9 @@
       }
     }
 
-    function serializeMismatchKeys(){
+    function serializeMismatchKeys(className){
       const keys = [];
-      document.querySelectorAll("#crossword input.mismatch").forEach((input) => {
+      document.querySelectorAll(`#crossword input.${className}`).forEach((input) => {
         if (input.readOnly) return;
         const key = `${input.dataset.r},${input.dataset.c}`;
         const pos = keyToRC(key);
@@ -642,7 +654,7 @@
       return keys;
     }
 
-    function restoreMismatch(rawMismatch){
+    function restoreMismatch(rawMismatch, className){
       const mismatchSet = new Set();
       if (Array.isArray(rawMismatch)){
         for (const key of rawMismatch){
@@ -654,7 +666,7 @@
       }
       document.querySelectorAll("#crossword input").forEach((input) => {
         const key = `${input.dataset.r},${input.dataset.c}`;
-        input.classList.toggle("mismatch", !input.readOnly && mismatchSet.has(key));
+        input.classList.toggle(className, !input.readOnly && mismatchSet.has(key));
       });
     }
 
@@ -740,7 +752,8 @@
         cols: COLS,
         answers,
         hinted: Array.from(HINTED_MAP.keys()),
-        mismatch: serializeMismatchKeys()
+        mismatchCheck: serializeMismatchKeys("mismatch"),
+        mismatchReveal: serializeMismatchKeys("reveal-mismatch")
       };
     }
 
@@ -773,7 +786,13 @@
             input.value = (ch === "." || ch === "#") ? "" : ch;
           }
         }
-        restoreMismatch(data.mismatch);
+        if (Array.isArray(data.mismatchCheck) || Array.isArray(data.mismatchReveal)){
+          restoreMismatch(data.mismatchCheck, "mismatch");
+          restoreMismatch(data.mismatchReveal, "reveal-mismatch");
+        } else {
+          // Backward compatibility for old payloads.
+          restoreMismatch(data.mismatch, "mismatch");
+        }
         return true;
       }catch(_err){
         return false;
@@ -784,6 +803,7 @@
       document.querySelectorAll("#crossword input").forEach(i => {
         const key = `${i.dataset.r},${i.dataset.c}`;
         i.classList.remove("mismatch");
+        i.classList.remove("reveal-mismatch");
         applyLockedStyle(i, key);
         if (!i.readOnly) i.value = "";
       });
@@ -822,7 +842,8 @@
           const current = (input.value || "").trim();
           const expected = (ch === "." || ch === "#") ? "" : ch;
           const mismatched = current !== expected;
-          input.classList.toggle("mismatch", mismatched);
+          input.classList.remove("mismatch");
+          input.classList.toggle("reveal-mismatch", mismatched);
           input.value = (ch === "." || ch === "#") ? "" : ch;
         }
       }
@@ -841,6 +862,7 @@
           const ch = chars[c] || ".";
           const expected = (ch === "." || ch === "#") ? "" : ch;
           const mismatched = !!current && current !== expected;
+          input.classList.remove("reveal-mismatch");
           input.classList.toggle("mismatch", mismatched);
         }
       }
