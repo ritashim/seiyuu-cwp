@@ -895,11 +895,11 @@
           const input = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
           if (!input) continue;
           if (input.readOnly) continue;
+          if (input.classList.contains("reveal-mismatch")) continue;
           const current = (input.value || "").trim();
           const ch = chars[c] || ".";
           const expected = (ch === "." || ch === "#") ? "" : ch;
           const mismatched = !!current && current !== expected;
-          input.classList.remove("reveal-mismatch");
           input.classList.toggle("mismatch", mismatched);
         }
       }
