@@ -528,6 +528,7 @@
               if (k==="ArrowDown")  { e.preventDefault(); focusCell(r+1,c); }
               if (k==="ArrowLeft")  { e.preventDefault(); focusCell(r,c-1); }
               if (k==="ArrowRight") { e.preventDefault(); focusCell(r,c+1); }
+              if (e.target.readOnly && k==="Backspace") return;
               if (k==="Backspace" && e.target.value && e.target.selectionStart===0 && e.target.selectionEnd===0){
                 e.preventDefault();
                 e.target.value = "";
