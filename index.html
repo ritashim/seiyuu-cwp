@@ -34,6 +34,7 @@
       --pending-bg:#ffe2e2;
       --pending-border:#d64545;
       --pending-pulse:#f08a8a;
+      --mismatch-text:#891a1a;
       --pick-cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2v20M2 12h20' stroke='%23c62828' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2.5' fill='%23c62828'/%3E%3C/svg%3E");
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", Arial;
     }
@@ -112,6 +113,9 @@
       opacity:0.85;
       pointer-events:none;
     }
+    td.cell:has(input.mismatch) .num{
+      color:var(--white);
+    }
 
     td.cell input{
       display:block;
@@ -140,6 +144,10 @@
       background:var(--pending-bg);
       box-shadow: inset 0 0 0 2px var(--pending-border);
       animation: pendingHintPulse 1.6s ease-in-out infinite;
+    }
+    td.cell input.mismatch{
+      color:var(--white);
+      background:var(--mismatch-text);
     }
     td.cell.pending-confirm::after{
       content:"点击\A确认";
@@ -221,7 +229,7 @@
 <body>
   <div class="toolbar">
     <button id="btnClear" type="button">清空填字</button>
-    <button id="btnShowAnswers" type="button">显示答案</button>
+    <button id="btnShowAnswers" type="button">显示完整答案</button>
     <button
       id="btnGiveOneChar"
       class="warn"
@@ -486,6 +494,7 @@
               // Keep only the first non-whitespace Unicode character (supports CJK, Kana, etc.).
               const first = Array.from(raw.trim())[0] || "";
               e.target.value = first;
+              e.target.classList.remove("mismatch");
               placeCaretToEnd(e.target);
               saveProgress();
             });
@@ -585,6 +594,7 @@
       if (PREFILLED_MAP.has(key)){
         input.value = PREFILLED_MAP.get(key) || "";
         input.readOnly = true;
+        input.classList.remove("mismatch");
         input.classList.add("prefilled");
         input.classList.remove("hinted");
         return;
@@ -592,6 +602,7 @@
       if (HINTED_MAP.has(key)){
         input.value = HINTED_MAP.get(key) || "";
         input.readOnly = true;
+        input.classList.remove("mismatch");
         input.classList.add("hinted");
         input.classList.remove("prefilled");
         return;
@@ -614,6 +625,35 @@
         if (!ch) continue;
         HINTED_MAP.set(k, ch);
       }
+    }
+
+    function serializeMismatchKeys(){
+      const keys = [];
+      document.querySelectorAll("#crossword input.mismatch").forEach((input) => {
+        if (input.readOnly) return;
+        const key = `${input.dataset.r},${input.dataset.c}`;
+        const pos = keyToRC(key);
+        if (!pos) return;
+        if (!isWhite(pos.r, pos.c)) return;
+        keys.push(key);
+      });
+      return keys;
+    }
+
+    function restoreMismatch(rawMismatch){
+      const mismatchSet = new Set();
+      if (Array.isArray(rawMismatch)){
+        for (const key of rawMismatch){
+          const pos = keyToRC(key);
+          if (!pos) continue;
+          if (!isWhite(pos.r, pos.c)) continue;
+          mismatchSet.add(`${pos.r},${pos.c}`);
+        }
+      }
+      document.querySelectorAll("#crossword input").forEach((input) => {
+        const key = `${input.dataset.r},${input.dataset.c}`;
+        input.classList.toggle("mismatch", !input.readOnly && mismatchSet.has(key));
+      });
     }
 
     function lockHintedCell(r,c){
@@ -693,7 +733,13 @@
         }
         answers.push(row.join(""));
       }
-      return { rows: ROWS, cols: COLS, answers, hinted: Array.from(HINTED_MAP.keys()) };
+      return {
+        rows: ROWS,
+        cols: COLS,
+        answers,
+        hinted: Array.from(HINTED_MAP.keys()),
+        mismatch: serializeMismatchKeys()
+      };
     }
 
     function saveProgress(){
@@ -725,6 +771,7 @@
             input.value = (ch === "." || ch === "#") ? "" : ch;
           }
         }
+        restoreMismatch(data.mismatch);
         return true;
       }catch(_err){
         return false;
@@ -734,6 +781,7 @@
     function clearAll(){
       document.querySelectorAll("#crossword input").forEach(i => {
         const key = `${i.dataset.r},${i.dataset.c}`;
+        i.classList.remove("mismatch");
         applyLockedStyle(i, key);
         if (!i.readOnly) i.value = "";
       });
@@ -769,6 +817,10 @@
           if (!input) continue;
           if (input.readOnly) continue;
           const ch = chars[c] || ".";
+          const current = (input.value || "").trim();
+          const expected = (ch === "." || ch === "#") ? "" : ch;
+          const mismatched = current !== expected;
+          input.classList.toggle("mismatch", mismatched);
           input.value = (ch === "." || ch === "#") ? "" : ch;
         }
       }
