@@ -16,10 +16,29 @@
       --focus:#4c8bf5;
       --muted:#667085;
       --panel:#fafafa;
+      --text-main:#222;
+      --text-muted:#666;
+      --border-soft:#d0d5dd;
+      --border-panel:#e5e7eb;
+      --focus-border:#9bbcff;
+      --focus-ring:rgba(76,139,245,.15);
+      --warn-text:#9f2e2e;
+      --warn-border:#efb6b6;
+      --warn-bg:#fff1f1;
+      --warn-hover-bg:#ffe5e5;
+      --warn-hover-border:#e38f8f;
+      --warn-armed-bg:#ffdcdc;
+      --warn-armed-border:#d96f6f;
+      --prefilled-text:#2f6f3e;
+      --prefilled-bg:#eef8f0;
+      --pending-bg:#ffe2e2;
+      --pending-border:#d64545;
+      --pending-pulse:#f08a8a;
+      --pick-cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2v20M2 12h20' stroke='%23c62828' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2.5' fill='%23c62828'/%3E%3C/svg%3E");
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", Arial;
     }
 
-    body{ font-family: var(--font); margin: 24px; color:#222; }
+    body{ font-family: var(--font); margin: 24px; color:var(--text-main); }
     .layout{
       display:grid;
       grid-template-columns: auto minmax(260px, 360px);
@@ -34,25 +53,25 @@
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;
     }
     button{
-      appearance:none; border:1px solid #d0d5dd; background:#fff;
+      appearance:none; border:1px solid var(--border-soft); background:var(--white);
       padding:8px 10px; border-radius:10px; cursor:pointer; font-size:14px;
     }
-    button:hover{ background:#fafafa; }
+    button:hover{ background:var(--panel); }
     button.warn{
-      border-color:#efb6b6;
-      background:#fff1f1;
-      color:#9f2e2e;
+      border-color:var(--warn-border);
+      background:var(--warn-bg);
+      color:var(--warn-text);
     }
     button.warn:hover{
-      background:#ffe5e5;
-      border-color:#e38f8f;
+      background:var(--warn-hover-bg);
+      border-color:var(--warn-hover-border);
     }
     button.warn.is-armed{
-      background:#ffdcdc;
-      border-color:#d96f6f;
-      box-shadow: inset 0 0 0 1px #d96f6f;
+      background:var(--warn-armed-bg);
+      border-color:var(--warn-armed-border);
+      box-shadow: inset 0 0 0 1px var(--warn-armed-border);
     }
-    .hint{ font-size:13px; color:#666; }
+    .hint{ font-size:13px; color:var(--text-muted); }
 
     /* Grid table */
     table.crossword{
@@ -89,7 +108,7 @@
       top:2px; left:3px;
       font-size:10px;
       line-height:1;
-      color:#111;
+      color:var(--black);
       opacity:0.85;
       pointer-events:none;
     }
@@ -108,22 +127,51 @@
       box-shadow: inset 0 0 0 2px var(--focus);
     }
     td.cell input.prefilled{
-      color:#2f6f3e;
-      background:#eef8f0;
+      color:var(--prefilled-text);
+      background:var(--prefilled-bg);
       cursor:not-allowed;
     }
     td.cell input.hinted{
-      color:#9f2e2e;
-      background:#fff1f1;
+      color:var(--warn-text);
+      background:var(--warn-bg);
       cursor:not-allowed;
     }
-    table.crossword.pick-one-char td.cell input:not([readonly]){
-      cursor:crosshair;
+    td.cell input.pending-hint{
+      background:var(--pending-bg);
+      box-shadow: inset 0 0 0 2px var(--pending-border);
+      animation: pendingHintPulse 1.6s ease-in-out infinite;
+    }
+    td.cell.pending-confirm::after{
+      content:"点击\A确认";
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      z-index:3;
+      color:var(--warn-text);
+      font-size:9px;
+      font-weight:700;
+      line-height:1;
+      white-space:pre-line;
+      pointer-events:none;
+    }
+    @keyframes pendingHintPulse{
+      0%   { box-shadow: inset 0 0 0 2px var(--pending-border); }
+      50%  { box-shadow: inset 0 0 0 2px var(--pending-pulse); }
+      100% { box-shadow: inset 0 0 0 2px var(--pending-border); }
+    }
+    table.crossword.pick-one-char td.cell,
+    table.crossword.pick-one-char td.cell input{
+      cursor:var(--pick-cursor) 12 12, crosshair;
+    }
+    table.crossword.pick-one-char.awaiting-first-pick td.cell:hover input:not([readonly]){
+      background:var(--warn-armed-bg);
+      box-shadow: inset 0 0 0 1px var(--warn-armed-border);
     }
 
     /* Clue panel */
     .panel{
-      border:1px solid #e5e7eb;
+      border:1px solid var(--border-panel);
       background:var(--panel);
       border-radius:14px;
       padding:14px;
@@ -139,8 +187,8 @@
       display:grid; gap:14px;
     }
     .clue-box{
-      background:#fff;
-      border:1px solid #e5e7eb;
+      background:var(--white);
+      border:1px solid var(--border-panel);
       border-radius:12px;
       padding:10px;
     }
@@ -152,16 +200,16 @@
       width:100%;
       min-height:160px;
       resize:vertical;
-      border:1px solid #d0d5dd;
+      border:1px solid var(--border-soft);
       border-radius:10px;
       padding:10px;
       font-family: var(--font);
       font-size:13px;
       line-height:1.5;
       outline:none;
-      background:#fff;
+      background:var(--white);
     }
-    textarea:focus{ box-shadow: 0 0 0 3px rgba(76,139,245,.15); border-color:#9bbcff; }
+    textarea:focus{ box-shadow: 0 0 0 3px var(--focus-ring); border-color:var(--focus-border); }
 
     .small{
       font-size:12px; color:var(--muted);
@@ -178,7 +226,7 @@
       id="btnGiveOneChar"
       class="warn"
       type="button"
-      title="不可逆操作：将自动写入一个正确答案。"
+      title="不可逆操作：将写入一个正确答案。"
       aria-label="给我一个字（不可逆）"
     >⚠ 给我一个字</button>
     <span class="hint">自动题号；方向键移动。</span>
@@ -323,6 +371,7 @@
     }
     const HINTED_MAP = new Map();
     let isGiveOneCharSelecting = false;
+    let pendingHintKey = null;
 
     function isAcrossStart(r,c){
       // 白格且左边是边界/黑格，并且右边还有白格（长度>=2可选，这里不强制>=2）
@@ -448,9 +497,15 @@
             input.addEventListener("click", (e) => {
               if (isGiveOneCharSelecting){
                 e.preventDefault();
-                if (lockHintedCell(r,c)){
-                  saveProgress();
-                  setGiveOneCharSelecting(false);
+                const key = `${r},${c}`;
+                if (pendingHintKey === key){
+                  if (lockHintedCell(r,c)){
+                    clearPendingHint();
+                    saveProgress();
+                    setGiveOneCharSelecting(false);
+                  }
+                } else {
+                  setPendingHint(key);
                 }
                 return;
               }
@@ -573,6 +628,41 @@
       return true;
     }
 
+    function clearPendingHint(){
+      if (!pendingHintKey) return;
+      const pos = keyToRC(pendingHintKey);
+      if (pos){
+        const input = document.querySelector(`input[data-r="${pos.r}"][data-c="${pos.c}"]`);
+        if (input){
+          input.classList.remove("pending-hint");
+          input.closest("td")?.classList.remove("pending-confirm");
+        }
+      }
+      pendingHintKey = null;
+      syncPickOneCharUiState();
+    }
+
+    function setPendingHint(key){
+      const pos = keyToRC(key);
+      if (!pos) return;
+      if (!isWhite(pos.r, pos.c)) return;
+      if (PREFILLED_MAP.has(key)) return;
+      clearPendingHint();
+      pendingHintKey = key;
+      const input = document.querySelector(`input[data-r="${pos.r}"][data-c="${pos.c}"]`);
+      if (input){
+        input.classList.add("pending-hint");
+        input.closest("td")?.classList.add("pending-confirm");
+      }
+      syncPickOneCharUiState();
+    }
+
+    function syncPickOneCharUiState(){
+      const table = document.getElementById("crossword");
+      if (!table) return;
+      table.classList.toggle("awaiting-first-pick", isGiveOneCharSelecting && !pendingHintKey);
+    }
+
     function setGiveOneCharSelecting(active){
       isGiveOneCharSelecting = !!active;
       const btn = document.getElementById("btnGiveOneChar");
@@ -580,10 +670,12 @@
       if (btn){
         btn.classList.toggle("is-armed", isGiveOneCharSelecting);
         btn.title = isGiveOneCharSelecting
-          ? "选择一个格子：不可逆操作，将写入正确答案并永久锁定。"
+          ? "先点击一次进入待确定，再次点击同一格正式写入并永久锁定。"
           : "不可逆操作：将自动写入一个正确答案。";
       }
+      if (!isGiveOneCharSelecting) clearPendingHint();
       if (table) table.classList.toggle("pick-one-char", isGiveOneCharSelecting);
+      syncPickOneCharUiState();
     }
 
     const ANSWER_STORAGE_KEY = "seiyuu-cwp.answers.v1";
